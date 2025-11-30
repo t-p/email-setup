@@ -132,9 +132,9 @@ jobs:
       - name: Verify AWS Region Configuration
         if: steps.changes.outputs.infrastructure == 'true'
         run: |
-          echo "Verifying AWS region configuration for eu-central-1..."
-          if ! grep -q "eu-central-1" infrastructure/bin/infrastructure.ts; then
-            echo "ERROR: CDK app not configured for eu-central-1"
+          echo "Verifying AWS region configuration for ${{ env.AWS_REGION }}..."
+          if ! grep -q "${{ env.AWS_REGION }}" infrastructure/bin/infrastructure.ts; then
+            echo "ERROR: CDK app not configured for ${{ env.AWS_REGION }}"
             exit 1
           fi
           echo "Region configuration verified"
