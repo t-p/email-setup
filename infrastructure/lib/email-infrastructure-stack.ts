@@ -23,21 +23,6 @@ export class EmailInfrastructureStack extends cdk.Stack {
       mailFromDomain: `mail.${domainName}`
     });
 
-    // Create domain verification using CFN for getting verification token
-    const domainVerification = new ses.CfnEmailIdentity(this, 'DomainVerification', {
-      emailIdentity: domainName,
-      dkimAttributes: {
-        signingEnabled: true
-      },
-      feedbackAttributes: {
-        emailForwardingEnabled: false
-      },
-      mailFromAttributes: {
-        mailFromDomain: `mail.${domainName}`,
-        behaviorOnMxFailure: 'UseDefaultValue'
-      }
-    });
-
     // Create SMTP user for sending emails
     const smtpUser = new iam.User(this, 'SESSmtpUser', {
       userName: `ses-smtp-user-${domainName.replace('.', '-')}`,
@@ -295,28 +280,10 @@ export class EmailInfrastructureStack extends cdk.Stack {
       exportName: `DomainIdentity-${domainName.replace('.', '-')}`
     });
 
-    new cdk.CfnOutput(this, 'DomainVerificationToken', {
-      value: domainVerification.attrDkimDnsTokenName1 || 'Check AWS Console for verification token',
-      description: 'Domain verification token for TXT record',
-      exportName: `VerificationToken-${domainName.replace('.', '-')}`
-    });
-
-    new cdk.CfnOutput(this, 'DKIMRecord1', {
-      value: `${domainVerification.attrDkimDnsTokenName1}._domainkey.${domainName} CNAME ${domainVerification.attrDkimDnsTokenValue1}.dkim.amazonses.com`,
-      description: 'First DKIM CNAME record',
-      exportName: `DKIM1-${domainName.replace('.', '-')}`
-    });
-
-    new cdk.CfnOutput(this, 'DKIMRecord2', {
-      value: `${domainVerification.attrDkimDnsTokenName2}._domainkey.${domainName} CNAME ${domainVerification.attrDkimDnsTokenValue2}.dkim.amazonses.com`,
-      description: 'Second DKIM CNAME record',
-      exportName: `DKIM2-${domainName.replace('.', '-')}`
-    });
-
-    new cdk.CfnOutput(this, 'DKIMRecord3', {
-      value: `${domainVerification.attrDkimDnsTokenName3}._domainkey.${domainName} CNAME ${domainVerification.attrDkimDnsTokenValue3}.dkim.amazonses.com`,
-      description: 'Third DKIM CNAME record',
-      exportName: `DKIM3-${domainName.replace('.', '-')}`
+    new cdk.CfnOutput(this, 'DKIMTokensInfo', {
+      value: 'Check SES Console for DKIM tokens after deployment',
+      description: 'DKIM tokens available in SES console',
+      exportName: `DKIMInfo-${domainName.replace('.', '-')}`
     });
 
     new cdk.CfnOutput(this, 'SPFRecord', {
@@ -325,10 +292,10 @@ export class EmailInfrastructureStack extends cdk.Stack {
       exportName: `SPFRecord-${domainName.replace('.', '-')}`
     });
 
-    new cdk.CfnOutput(this, 'VerificationTXTRecord', {
-      value: `_amazonses.${domainName} TXT "${domainVerification.attrDkimDnsTokenName1 || 'CHECK_CONSOLE'}"`,
-      description: 'Domain verification TXT record',
-      exportName: `VerificationTXT-${domainName.replace('.', '-')}`
+    new cdk.CfnOutput(this, 'DNSConfigCommand', {
+      value: `Run: ./scripts/show-dns-config.sh ${domainName}`,
+      description: 'Command to show all DNS records',
+      exportName: `DNSCommand-${domainName.replace('.', '-')}`
     });
 
     new cdk.CfnOutput(this, 'DNSInstructions', {
