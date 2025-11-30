@@ -140,13 +140,22 @@ export class EmailInfrastructureStack extends cdk.Stack {
       environment: {
         BUCKET_NAME: emailBucket.bucketName,
         TABLE_NAME: emailMetadataTable.tableName,
-        DOMAIN_NAME: domainName
+        DOMAIN_NAME: domainName,
+        // Forwarding rules - set via GitHub Secret or leave empty
+        FORWARDING_RULES: process.env.FORWARDING_RULES || '[]'
       }
     });
 
     // Grant permissions to Lambda function
     emailBucket.grantReadWrite(emailProcessorFunction);
     emailMetadataTable.grantReadWriteData(emailProcessorFunction);
+
+    // Grant SES send permissions for email forwarding
+    emailProcessorFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['ses:SendRawEmail'],
+      resources: ['*']
+    }));
 
     // Add S3 trigger for Lambda when emails are uploaded to incoming/
     emailBucket.addEventNotification(

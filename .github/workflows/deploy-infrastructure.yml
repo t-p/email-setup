@@ -317,6 +317,8 @@ jobs:
 
       - name: CDK Deploy
         working-directory: infrastructure
+        env:
+          FORWARDING_RULES: ${{ secrets.FORWARDING_RULES }}
         run: |
           cdk deploy EmailInfrastructureStack --require-approval never || {
               echo "Deployment failed. Checking CloudFormation events..."

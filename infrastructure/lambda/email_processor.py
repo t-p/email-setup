@@ -4,6 +4,7 @@ import email
 import hashlib
 import logging
 import os
+import re
 from datetime import datetime
 from email.utils import parseaddr, parsedate_to_datetime
 from urllib.parse import unquote_plus
@@ -16,6 +17,7 @@ logger.setLevel(logging.INFO)
 # Initialize AWS clients
 s3 = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
+ses = boto3.client('ses')
 
 # Environment variables
 BUCKET_NAME = os.environ.get('BUCKET_NAME')
@@ -24,6 +26,16 @@ DOMAIN_NAME = os.environ.get('DOMAIN_NAME')
 
 # Initialize DynamoDB table
 table = dynamodb.Table(TABLE_NAME)
+
+# Email forwarding rules - loaded from environment variable
+# Format: JSON array of objects with 'pattern' and 'forward_to' keys
+# Example: [{"pattern": "^user@domain\\.com$", "forward_to": "forward@example.com"}]
+FORWARDING_RULES_JSON = os.environ.get('FORWARDING_RULES', '[]')
+try:
+    FORWARDING_RULES = json.loads(FORWARDING_RULES_JSON)
+except json.JSONDecodeError:
+    logger.warning("Invalid FORWARDING_RULES JSON, using empty rules")
+    FORWARDING_RULES = []
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -258,6 +270,9 @@ def process_email(email_obj: email.message.EmailMessage, message_id: str,
         # Create manifest entry for IMAP sync
         create_manifest_entry(date_str, message_id, metadata_item)
 
+        # Check forwarding rules and forward if matched
+        forward_email_if_matched(email_obj, recipient_email)
+
         logger.info(f"Successfully processed email {message_id} ({email_size} bytes)")
 
     except Exception as e:
@@ -387,3 +402,38 @@ def create_manifest_entry(date_str: str, message_id: str, metadata: Dict[str, An
     except Exception as e:
         logger.error(f"Error creating manifest entry: {str(e)}", exc_info=True)
         # Don't raise - manifest is not critical for email processing
+
+
+def forward_email_if_matched(email_obj: email.message.EmailMessage, recipient: str) -> None:
+    """
+    Check if email matches forwarding rules and forward if matched.
+
+    Args:
+        email_obj: Parsed email object
+        recipient: Email recipient address
+    """
+    try:
+        # Check each forwarding rule
+        for rule in FORWARDING_RULES:
+            if re.match(rule['pattern'], recipient, re.IGNORECASE):
+                forward_to = rule['forward_to']
+                logger.info(f"Forwarding email to {recipient} → {forward_to}")
+                
+                try:
+                    # Send raw email via SES
+                    ses.send_raw_email(
+                        Source=recipient,  # Use original recipient as source
+                        Destinations=[forward_to],
+                        RawMessage={'Data': email_obj.as_bytes()}
+                    )
+                    logger.info(f"Successfully forwarded email to {forward_to}")
+                except Exception as e:
+                    logger.error(f"Failed to forward email to {forward_to}: {str(e)}")
+                    # Don't raise - forwarding failure shouldn't stop email processing
+                
+                # Only forward to first matching rule
+                break
+    
+    except Exception as e:
+        logger.error(f"Error in forward_email_if_matched: {str(e)}", exc_info=True)
+        # Don't raise - forwarding is optional
