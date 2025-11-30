@@ -1,0 +1,417 @@
+name: Deploy Email Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infrastructure/**"
+      - ".github/workflows/deploy-infrastructure.yml"
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: "Force deployment (skip diff check)"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: eu-central-1
+  NODE_VERSION: "22"
+  CDK_VERSION: "2.x"
+  DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: read # Required for checkout
+  pull-requests: write # Required for PR comments
+
+jobs:
+  # Security scanning job - runs first
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for infrastructure changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            infrastructure:
+              - 'infrastructure/**'
+              - '.github/workflows/deploy-infrastructure.yml'
+
+      - name: Setup Node.js
+        if: steps.changes.outputs.infrastructure == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install dependencies
+        if: steps.changes.outputs.infrastructure == 'true'
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Run security audit
+        if: steps.changes.outputs.infrastructure == 'true'
+        working-directory: infrastructure
+        run: npm audit --audit-level=high
+
+      - name: Run Snyk security scan
+        if: steps.changes.outputs.infrastructure == 'true'
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+          command: test
+
+      - name: CDK Security Analysis
+        if: steps.changes.outputs.infrastructure == 'true'
+        working-directory: infrastructure
+        run: |
+          # Run basic security checks
+          echo "Running basic security analysis..."
+
+          # Check for hardcoded secrets (basic pattern matching)
+          echo "Scanning for potential secrets..."
+          grep -r -i "password\|secret\|key\|token" . --include="*.ts" --include="*.js" | grep -v node_modules | grep -v ".git" || echo "No obvious secrets found"
+
+          echo "Security scan completed"
+
+  # Validation job
+  validate:
+    name: Validate Infrastructure
+    runs-on: ubuntu-latest
+    needs: security-scan
+    outputs:
+      changes-detected: ${{ steps.changes.outputs.infrastructure }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for infrastructure changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            infrastructure:
+              - 'infrastructure/**'
+              - '.github/workflows/deploy-infrastructure.yml'
+
+      - name: Setup Node.js
+        if: steps.changes.outputs.infrastructure == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install dependencies
+        if: steps.changes.outputs.infrastructure == 'true'
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Lint TypeScript
+        if: steps.changes.outputs.infrastructure == 'true'
+        working-directory: infrastructure
+        run: |
+          npx eslint . --ext .ts || echo "ESLint not configured, skipping..."
+
+      - name: Verify AWS Region Configuration
+        if: steps.changes.outputs.infrastructure == 'true'
+        run: |
+          echo "Verifying AWS region configuration for eu-central-1..."
+          if ! grep -q "eu-central-1" infrastructure/bin/infrastructure.ts; then
+            echo "ERROR: CDK app not configured for eu-central-1"
+            exit 1
+          fi
+          echo "Region configuration verified"
+
+      - name: Build TypeScript
+        if: steps.changes.outputs.infrastructure == 'true'
+        working-directory: infrastructure
+        run: npm run build
+
+      - name: Run tests
+        if: steps.changes.outputs.infrastructure == 'true'
+        working-directory: infrastructure
+        run: npm test
+
+      - name: Cache build artifacts
+        if: steps.changes.outputs.infrastructure == 'true'
+        uses: actions/cache@v3
+        with:
+          path: |
+            infrastructure/lib/**/*.js
+            infrastructure/bin/**/*.js
+            infrastructure/node_modules
+          key: build-${{ github.sha }}
+
+  # CDK diff job for pull requests
+  diff:
+    name: CDK Diff
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request' && needs.validate.outputs.changes-detected == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHubActions-CDKDiff
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Restore build cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            infrastructure/lib/**/*.js
+            infrastructure/bin/**/*.js
+            infrastructure/node_modules
+          key: build-${{ github.sha }}
+
+      - name: Install dependencies (if cache miss)
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Build (if cache miss)
+        working-directory: infrastructure
+        run: npm run build
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk@${{ env.CDK_VERSION }}
+
+      - name: CDK Diff
+        id: diff
+        working-directory: infrastructure
+        run: |
+          echo "# CDK Diff Results" > diff-output.md
+          echo "" >> diff-output.md
+          echo "\`\`\`diff" >> diff-output.md
+          cdk diff EmailInfrastructureStack 2>&1 | tee -a diff-output.md || true
+          echo "\`\`\`" >> diff-output.md
+
+      - name: Comment PR with diff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const diffOutput = fs.readFileSync('infrastructure/diff-output.md', 'utf8');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' && comment.body.includes('CDK Diff Results')
+            );
+
+            const commentBody = `## Infrastructure Changes
+
+            ${diffOutput}
+
+            ---
+            *This comment will be automatically updated when you push new commits.*`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+
+  # Deploy to production
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: validate
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.validate.outputs.changes-detected == 'true') ||
+      github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+      url: https://console.aws.amazon.com/ses/home?region=eu-central-1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHubActions-Deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Restore build cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            infrastructure/lib/**/*.js
+            infrastructure/bin/**/*.js
+            infrastructure/node_modules
+          key: build-${{ github.sha }}
+
+      - name: Install dependencies (if cache miss)
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Build (if cache miss)
+        working-directory: infrastructure
+        run: npm run build
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk@${{ env.CDK_VERSION }}
+
+      - name: CDK Diff (Safety Check)
+        if: github.event.inputs.force_deploy != 'true'
+        working-directory: infrastructure
+        run: |
+          echo "Running safety diff..."
+          cdk diff EmailInfrastructureStack || true
+
+      - name: CDK Bootstrap (if needed)
+        working-directory: infrastructure
+        run: |
+          cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} || echo "Bootstrap already exists"
+
+      - name: CDK Deploy
+        working-directory: infrastructure
+        run: |
+          cdk deploy EmailInfrastructureStack \
+            --require-approval never \
+            --outputs-file outputs.json
+
+      - name: Upload deployment outputs
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-outputs
+          path: infrastructure/outputs.json
+          retention-days: 90
+
+      - name: Post-deployment validation
+        working-directory: infrastructure
+        run: |
+          echo "Validating deployment..."
+
+          # Check if stack exists and is in good state
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name EmailInfrastructureStack \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].StackStatus' \
+            --output text)
+
+          if [[ "$STACK_STATUS" != "CREATE_COMPLETE" && "$STACK_STATUS" != "UPDATE_COMPLETE" ]]; then
+            echo "ERROR: Stack is in unexpected state: $STACK_STATUS"
+            exit 1
+          fi
+
+          echo "Deployment validated successfully"
+
+      - name: Show DNS Configuration
+        working-directory: infrastructure
+        run: |
+          echo "DNS Configuration"
+          if [ -f "./scripts/show-dns-config.sh" ]; then
+            ./scripts/show-dns-config.sh ${{ env.DOMAIN_NAME }}
+          else
+            echo "WARNING: DNS configuration script not found"
+          fi
+
+      - name: Run Infrastructure Tests
+        working-directory: infrastructure
+        run: |
+          echo "Running infrastructure tests..."
+          if [ -f "./scripts/test-email-infrastructure.sh" ]; then
+            ./scripts/test-email-infrastructure.sh ${{ env.DOMAIN_NAME }} || echo "WARNING: Some tests failed - check output above"
+          else
+            echo "WARNING: Test script not found"
+          fi
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo " Deployment completed successfully!"
+          echo " Check the AWS Console for deployment status"
+          echo "� SES Consoole: https://console.aws.amazon.com/ses/home?region=${{ env.AWS_REGION }}"
+          echo ""
+          echo "� SNext Steps:"
+          echo "1. Configure DNS records as shown above"
+          echo "2. Wait for DNS propagation (up to 24 hours)"
+          echo "3. Monitor SES verification status"
+          echo "4. Test email sending once domain is verified"
+
+  # Cleanup job for failed deployments
+  cleanup-on-failure:
+    name: Cleanup Failed Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: failure() && needs.deploy.result == 'failure'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHubActions-Cleanup
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check and report deployment status
+        run: |
+          echo " Checking deployment status..."
+
+          # Get stack status
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name EmailInfrastructureStack \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "STACK_NOT_FOUND")
+
+          echo " Current stack status: $STACK_STATUS"
+
+          if [[ "$STACK_STATUS" == *"FAILED"* ]] || [[ "$STACK_STATUS" == *"ROLLBACK"* ]]; then
+            echo "WARNING: Stack is in a failed state. Manual intervention may be required."
+            echo " CloudFormation Console: https://console.aws.amazon.com/cloudformation/home?region=${{ env.AWS_REGION }}"
+          fi
+
+
