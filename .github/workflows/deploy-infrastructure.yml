@@ -320,7 +320,7 @@ jobs:
         run: |
           cdk deploy EmailInfrastructureStack \
             --require-approval never \
-            --no-previous-parameters \
+            --method=direct \
             --outputs-file outputs.json \
             --verbose || {
               echo "Deployment failed. Checking CloudFormation events..."
