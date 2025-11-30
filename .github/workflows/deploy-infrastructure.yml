@@ -315,12 +315,7 @@ jobs:
           echo "Bootstrapping CDK in ${{ env.AWS_REGION }}..."
           cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}
 
-      - name: CDK Deploy Storage Stack
-        working-directory: infrastructure
-        run: |
-          cdk deploy EmailStorageStack --require-approval never
-
-      - name: CDK Deploy Infrastructure Stack
+      - name: CDK Deploy
         working-directory: infrastructure
         run: |
           cdk deploy EmailInfrastructureStack --require-approval never || {
