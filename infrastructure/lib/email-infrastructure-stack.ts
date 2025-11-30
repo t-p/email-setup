@@ -9,11 +9,17 @@ import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
+export interface EmailInfrastructureStackProps extends cdk.StackProps {
+  emailBucket: s3.IBucket;
+  emailMetadataTable: dynamodb.ITable;
+}
+
 export class EmailInfrastructureStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: EmailInfrastructureStackProps) {
     super(scope, id, props);
 
     const domainName = 'pfeiffer.rocks';
+    const { emailBucket, emailMetadataTable } = props;
 
     // SES Domain Identity with DKIM
     const domainIdentity = new ses.EmailIdentity(this, 'DomainIdentity', {
@@ -57,75 +63,6 @@ export class EmailInfrastructureStack extends cdk.Stack {
         }),
         generateStringKey: 'secretAccessKey',
         excludeCharacters: '"@/\\'
-      }
-    });
-
-    // S3 Bucket for email storage
-    const emailBucket = new s3.Bucket(this, 'EmailStorageBucket', {
-      bucketName: `email-storage-${domainName.replace('.', '-')}-${this.account}`,
-      versioned: true,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      lifecycleRules: [
-        {
-          id: 'ArchiveOldEmails',
-          enabled: true,
-          transitions: [
-            {
-              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-              transitionAfter: cdk.Duration.days(30)
-            },
-            {
-              storageClass: s3.StorageClass.GLACIER,
-              transitionAfter: cdk.Duration.days(90)
-            }
-          ]
-        }
-      ],
-      removalPolicy: cdk.RemovalPolicy.RETAIN
-    });
-
-    // DynamoDB table for email metadata
-    const emailMetadataTable = new dynamodb.Table(this, 'EmailMetadataTable', {
-      tableName: `email-metadata-${domainName.replace('.', '-')}`,
-      partitionKey: {
-        name: 'messageId',
-        type: dynamodb.AttributeType.STRING
-      },
-      sortKey: {
-        name: 'timestamp',
-        type: dynamodb.AttributeType.STRING
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: true
-      },
-      removalPolicy: cdk.RemovalPolicy.RETAIN
-    });
-
-    // Add GSI for querying by recipient and timestamp
-    emailMetadataTable.addGlobalSecondaryIndex({
-      indexName: 'RecipientTimestampIndex',
-      partitionKey: {
-        name: 'recipient',
-        type: dynamodb.AttributeType.STRING
-      },
-      sortKey: {
-        name: 'timestamp',
-        type: dynamodb.AttributeType.STRING
-      }
-    });
-
-    // Add GSI for querying by date
-    emailMetadataTable.addGlobalSecondaryIndex({
-      indexName: 'DateIndex',
-      partitionKey: {
-        name: 'date',
-        type: dynamodb.AttributeType.STRING
-      },
-      sortKey: {
-        name: 'timestamp',
-        type: dynamodb.AttributeType.STRING
       }
     });
 
@@ -215,18 +152,6 @@ export class EmailInfrastructureStack extends cdk.Stack {
     domainIdentity.node.addDependency(configurationSet);
 
     // Outputs
-    new cdk.CfnOutput(this, 'EmailBucketName', {
-      value: emailBucket.bucketName,
-      description: 'S3 bucket name for email storage',
-      exportName: `EmailBucket-${domainName.replace('.', '-')}`
-    });
-
-    new cdk.CfnOutput(this, 'EmailMetadataTableName', {
-      value: emailMetadataTable.tableName,
-      description: 'DynamoDB table name for email metadata',
-      exportName: `EmailTable-${domainName.replace('.', '-')}`
-    });
-
     new cdk.CfnOutput(this, 'EmailProcessorFunctionName', {
       value: emailProcessorFunction.functionName,
       description: 'Lambda function name for email processing',
