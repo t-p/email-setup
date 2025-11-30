@@ -16,7 +16,7 @@ on:
         type: boolean
 
 env:
-  AWS_REGION: eu-central-1
+  AWS_REGION: eu-west-1
   NODE_VERSION: "22"
   CDK_VERSION: "2.x"
   DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
