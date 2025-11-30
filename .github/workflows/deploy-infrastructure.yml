@@ -357,16 +357,6 @@ jobs:
 
           echo "Deployment validated successfully"
 
-      - name: Show DNS Configuration
-        working-directory: infrastructure
-        run: |
-          echo "DNS Configuration"
-          if [ -f "./scripts/show-dns-config.sh" ]; then
-            ./scripts/show-dns-config.sh ${{ env.DOMAIN_NAME }}
-          else
-            echo "WARNING: DNS configuration script not found"
-          fi
-
       - name: Run Infrastructure Tests
         working-directory: infrastructure
         run: |
