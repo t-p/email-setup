@@ -312,14 +312,26 @@ jobs:
       - name: CDK Bootstrap (if needed)
         working-directory: infrastructure
         run: |
-          cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} || echo "Bootstrap already exists"
+          echo "Bootstrapping CDK in ${{ env.AWS_REGION }}..."
+          cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}
 
       - name: CDK Deploy
         working-directory: infrastructure
         run: |
           cdk deploy EmailInfrastructureStack \
             --require-approval never \
-            --outputs-file outputs.json
+            --no-previous-parameters \
+            --outputs-file outputs.json \
+            --verbose || {
+              echo "Deployment failed. Checking CloudFormation events..."
+              aws cloudformation describe-stack-events \
+                --stack-name EmailInfrastructureStack \
+                --region ${{ env.AWS_REGION }} \
+                --max-items 20 \
+                --query 'StackEvents[?ResourceStatus==`CREATE_FAILED` || ResourceStatus==`UPDATE_FAILED`].[LogicalResourceId,ResourceType,ResourceStatusReason]' \
+                --output table || echo "Could not retrieve stack events"
+              exit 1
+            }
 
       - name: Upload deployment outputs
         uses: actions/upload-artifact@v4
