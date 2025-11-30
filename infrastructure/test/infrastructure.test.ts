@@ -4,7 +4,7 @@ import * as Infrastructure from '../lib/email-infrastructure-stack';
 
 describe('Email Infrastructure Stack', () => {
   let app: cdk.App;
-  let stack: Infrastructure.InfrastructureStack;
+  let stack: Infrastructure.EmailInfrastructureStack;
   let template: Template;
 
   beforeEach(() => {
