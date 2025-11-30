@@ -164,9 +164,10 @@ export class EmailInfrastructureStack extends cdk.Stack {
     // Run: aws ses set-active-receipt-rule-set --rule-set-name [rule-set-name] --region eu-central-1
 
     // SES Receipt Rule for storing emails in S3
+    // Note: Leave recipients empty to match all emails for the domain
     const receiptRule = new ses.ReceiptRule(this, 'EmailReceiptRule', {
       ruleSet: ruleSet,
-      recipients: [domainName, `*.${domainName}`],
+      recipients: [domainName],
       actions: [
         new sesActions.S3({
           bucket: emailBucket,
