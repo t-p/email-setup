@@ -26,11 +26,18 @@ export class EmailInfrastructureStack extends cdk.Stack {
     // Create SMTP user for sending emails
     const smtpUser = new iam.User(this, 'SESSmtpUser', {
       userName: `ses-smtp-user-${domainName.replace('.', '-')}`,
-      path: '/email/',
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSesSendingAccess')
-      ]
+      path: '/email/'
     });
+
+    // Add SES sending permissions to SMTP user
+    smtpUser.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'ses:SendEmail',
+        'ses:SendRawEmail'
+      ],
+      resources: ['*']
+    }));
 
     // Create access key for SMTP user
     const smtpAccessKey = new iam.AccessKey(this, 'SMTPAccessKey', {
