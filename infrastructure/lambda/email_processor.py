@@ -420,6 +420,16 @@ def forward_email_if_matched(email_obj: email.message.EmailMessage, recipient: s
                 logger.info(f"Forwarding email to {recipient} → {forward_to}")
                 
                 try:
+                    # Remove DKIM-Signature headers to avoid duplicates
+                    # SES will add its own DKIM signature
+                    del email_obj['DKIM-Signature']
+                    
+                    # Also remove other authentication headers that might cause issues
+                    del email_obj['Authentication-Results']
+                    del email_obj['ARC-Authentication-Results']
+                    del email_obj['ARC-Message-Signature']
+                    del email_obj['ARC-Seal']
+                    
                     # Send raw email via SES
                     ses.send_raw_email(
                         Source=recipient,  # Use original recipient as source

@@ -13,6 +13,7 @@ export class EmailInfrastructureStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // Email infrastructure for pfeiffer.rocks domain
     const domainName = 'pfeiffer.rocks';
 
     // S3 Bucket for email storage (STATEFUL - will be retained)
