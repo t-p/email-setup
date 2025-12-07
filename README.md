@@ -11,6 +11,7 @@ This document outlines the design for a hybrid email infrastructure for the `pfe
 - **Cost-Effectiveness**: Minimize monthly costs while maintaining professional email capabilities
 - **Scalability**: Use cloud storage for centralized email data accessible by multiple IMAP servers
 - **Security**: Implement proper SSL/TLS encryption and secure authentication
+- **EU Compliance**: Deploy in eu-central-1 for GDPR compliance and EU data residency
 
 ## High-Level Architecture
 
