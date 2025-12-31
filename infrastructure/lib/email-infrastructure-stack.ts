@@ -14,7 +14,7 @@ export class EmailInfrastructureStack extends cdk.Stack {
 
     // S3 Bucket for email storage (STATEFUL - will be retained)
     const emailBucket = new s3.Bucket(this, 'EmailStorageBucket', {
-      bucketName: `email-storage-${domainName.replace('.', '-')}-${this.account}`,
+      bucketName: `email-storage-${domainName.replace('.', '-')}-${this.account}-v2`,
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
