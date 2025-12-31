@@ -93,6 +93,11 @@ export class EmailInfrastructureStack extends cdk.Stack {
 
     emailBucket.grantRead(syncUser);
 
+    // Create access key for email sync user
+    const syncAccessKey = new iam.AccessKey(this, 'EmailSyncAccessKey', {
+      user: syncUser
+    });
+
     // SES Configuration Set for monitoring
     const configurationSet = new ses.ConfigurationSet(this, 'EmailConfigurationSet', {
       configurationSetName: `${domainName.replace('.', '-')}-config`,
@@ -113,6 +118,12 @@ export class EmailInfrastructureStack extends cdk.Stack {
       value: syncUser.userArn,
       description: 'IAM user ARN for email sync services',
       exportName: `EmailSyncUser-${domainName.replace('.', '-')}`
+    });
+
+    new cdk.CfnOutput(this, 'EmailSyncAccessKeyId', {
+      value: syncAccessKey.accessKeyId,
+      description: 'Access Key ID for email sync user (for IMAP server)',
+      exportName: `EmailSyncAccessKey-${domainName.replace('.', '-')}`
     });
 
     new cdk.CfnOutput(this, 'SESReceiptRuleSetName', {

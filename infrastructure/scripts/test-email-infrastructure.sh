@@ -7,7 +7,7 @@ set -e
 
 DOMAIN=${1:-pfeiffer.rocks}
 STACK_NAME="EmailInfrastructureStack"
-REGION=${AWS_REGION:-eu-central-1}
+REGION=${AWS_REGION:-eu-west-1}
 TEST_EMAIL=${2:-test@${DOMAIN}}
 
 # Colors for output
@@ -141,6 +141,8 @@ test_ses_domain() {
 
     if [ "$DKIM_ENABLED" = "true" ] && [ "$DKIM_STATUS" = "Success" ]; then
         print_success "DKIM is properly configured"
+    elif [ "$DKIM_ENABLED" = "true" ]; then
+        print_warning "DKIM enabled but not yet verified - check DNS records"
     else
         print_warning "DKIM configuration incomplete - check DNS records"
     fi
@@ -300,10 +302,13 @@ test_email_sending() {
     echo "   24-hour send quota: $SEND_QUOTA emails"
     echo "   Send rate limit: $SEND_RATE emails/second"
 
-    if [ "$SEND_QUOTA" = "200" ]; then
+    # Convert floating point to integer for comparison
+    SEND_QUOTA_INT=$(echo "$SEND_QUOTA" | cut -d. -f1)
+    
+    if [ "$SEND_QUOTA_INT" = "200" ]; then
         print_warning "SES is in sandbox mode - only verified addresses can receive emails"
         echo "   Request production access at: https://console.aws.amazon.com/ses/home?region=$REGION#/account"
-    elif [ "$SEND_QUOTA" -gt "200" ]; then
+    elif [ "$SEND_QUOTA_INT" -gt "200" ]; then
         print_success "SES production access is enabled"
     else
         print_error "SES sending quota is 0 - check account status"
