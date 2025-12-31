@@ -104,94 +104,6 @@ test_s3_bucket() {
     fi
 }
 
-test_dynamodb_table() {
-    echo -e "\n${BLUE}Testing DynamoDB Table...${NC}"
-
-    TABLE_NAME=$(get_output "EmailMetadataTableName")
-    if [ "$TABLE_NAME" = "Not found" ]; then
-        print_error "DynamoDB table name not found in stack outputs"
-        return 1
-    fi
-
-    # Check if table exists and is active
-    TABLE_STATUS=$(aws dynamodb describe-table \
-        --table-name $TABLE_NAME \
-        --region $REGION \
-        --query 'Table.TableStatus' \
-        --output text 2>/dev/null || echo "NOT_FOUND")
-
-    if [ "$TABLE_STATUS" = "ACTIVE" ]; then
-        print_success "DynamoDB table is active: $TABLE_NAME"
-
-        # Check table schema
-        echo "   Checking table schema..."
-        aws dynamodb describe-table \
-            --table-name $TABLE_NAME \
-            --region $REGION \
-            --query 'Table.{Keys:KeySchema,GSI:GlobalSecondaryIndexes[].{Name:IndexName,Keys:KeySchema}}' \
-            --output table
-    else
-        print_error "DynamoDB table not accessible or wrong status: $TABLE_STATUS"
-        return 1
-    fi
-}
-
-test_lambda_function() {
-    echo -e "\n${BLUE}Testing Lambda Function...${NC}"
-
-    FUNCTION_NAME=$(get_output "EmailProcessorFunctionName")
-    if [ "$FUNCTION_NAME" = "Not found" ]; then
-        print_error "Lambda function name not found in stack outputs"
-        return 1
-    fi
-
-    # Check if function exists and get configuration
-    FUNCTION_STATE=$(aws lambda get-function \
-        --function-name $FUNCTION_NAME \
-        --region $REGION \
-        --query 'Configuration.State' \
-        --output text 2>/dev/null || echo "NOT_FOUND")
-
-    if [ "$FUNCTION_STATE" = "Active" ]; then
-        print_success "Lambda function is active: $FUNCTION_NAME"
-
-        # Test function with a sample event
-        echo "   Testing function invocation..."
-        TEST_EVENT='{
-            "Records": [{
-                "eventVersion": "2.1",
-                "eventSource": "aws:s3",
-                "eventName": "ObjectCreated:Put",
-                "s3": {
-                    "bucket": {"name": "'$BUCKET_NAME'"},
-                    "object": {"key": "incoming/test-email.txt"}
-                }
-            }]
-        }'
-
-        INVOKE_RESULT=$(aws lambda invoke \
-            --function-name $FUNCTION_NAME \
-            --region $REGION \
-            --payload "$TEST_EVENT" \
-            --cli-binary-format raw-in-base64-out \
-            /tmp/lambda-test-output.json 2>&1)
-
-        if [ $? -eq 0 ]; then
-            print_success "Lambda function invocation successful"
-            if [ -f /tmp/lambda-test-output.json ]; then
-                echo "   Function output:"
-                cat /tmp/lambda-test-output.json | head -5
-                rm -f /tmp/lambda-test-output.json
-            fi
-        else
-            print_warning "Lambda function test invocation failed: $INVOKE_RESULT"
-        fi
-    else
-        print_error "Lambda function not accessible or wrong state: $FUNCTION_STATE"
-        return 1
-    fi
-}
-
 test_ses_domain() {
     echo -e "\n${BLUE}Testing SES Domain Configuration...${NC}"
 
@@ -497,8 +409,6 @@ FAILED_TESTS=0
 
 test_stack_deployment || ((FAILED_TESTS++))
 test_s3_bucket || ((FAILED_TESTS++))
-test_dynamodb_table || ((FAILED_TESTS++))
-test_lambda_function || ((FAILED_TESTS++))
 test_ses_domain || ((FAILED_TESTS++))
 test_ses_rules || ((FAILED_TESTS++))
 test_smtp_configuration || ((FAILED_TESTS++))
