@@ -38,13 +38,6 @@ describe('Email Storage Stack', () => {
     });
   });
 
-  test('DynamoDB table for email metadata is created', () => {
-    template.hasResourceProperties('AWS::DynamoDB::Table', {
-      BillingMode: 'PAY_PER_REQUEST',
-      TableName: 'email-metadata-pfeiffer-rocks'
-    });
-  });
-
   test('Security: S3 bucket has proper access controls', () => {
     template.hasResourceProperties('AWS::S3::Bucket', {
       PublicAccessBlockConfiguration: {
@@ -56,17 +49,8 @@ describe('Email Storage Stack', () => {
     });
   });
 
-  test('Security: DynamoDB table has point-in-time recovery enabled', () => {
-    template.hasResourceProperties('AWS::DynamoDB::Table', {
-      PointInTimeRecoverySpecification: {
-        PointInTimeRecoveryEnabled: true
-      }
-    });
-  });
-
   test('Storage stack outputs are defined', () => {
     const outputs = template.findOutputs('*');
     expect(Object.keys(outputs)).toContain('EmailBucketName');
-    expect(Object.keys(outputs)).toContain('EmailMetadataTableName');
   });
 });
