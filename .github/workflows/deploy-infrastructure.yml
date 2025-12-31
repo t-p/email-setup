@@ -331,7 +331,6 @@ jobs:
                 --output table || echo "Could not retrieve stack events"
               exit 1
             }
-          echo "✅ Deployment completed successfully!"
 
       - name: Post-deployment validation
         working-directory: infrastructure
@@ -361,19 +360,6 @@ jobs:
           else
             echo "WARNING: Test script not found"
           fi
-
-      - name: Notify deployment success
-        if: success()
-        run: |
-          echo " Deployment completed successfully!"
-          echo " Check the AWS Console for deployment status"
-          echo "� SES Consoole: https://console.aws.amazon.com/ses/home?region=${{ env.AWS_REGION }}"
-          echo ""
-          echo "� SNext Steps:"
-          echo "1. Configure DNS records as shown above"
-          echo "2. Wait for DNS propagation (up to 24 hours)"
-          echo "3. Monitor SES verification status"
-          echo "4. Test email sending once domain is verified"
 
   # Cleanup job for failed deployments
   cleanup-on-failure:
