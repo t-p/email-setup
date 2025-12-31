@@ -3,7 +3,6 @@ import * as ses from 'aws-cdk-lib/aws-ses';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sesActions from 'aws-cdk-lib/aws-ses-actions';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export class EmailInfrastructureStack extends cdk.Stack {
@@ -65,22 +64,6 @@ export class EmailInfrastructureStack extends cdk.Stack {
     // Create access key for SMTP user
     const smtpAccessKey = new iam.AccessKey(this, 'SMTPAccessKey', {
       user: smtpUser
-    });
-
-    // Store SMTP credentials in Secrets Manager
-    const smtpSecret = new secretsmanager.Secret(this, 'SMTPCredentials', {
-      secretName: `ses-smtp-credentials-${domainName.replace('.', '-')}`,
-      description: `SMTP credentials for ${domainName}`,
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({
-          accessKeyId: smtpAccessKey.accessKeyId,
-          region: this.region,
-          smtpEndpoint: `email-smtp.${this.region}.amazonaws.com`,
-          smtpPort: '587'
-        }),
-        generateStringKey: 'secretAccessKey',
-        excludeCharacters: '"@/\\'
-      }
     });
 
     // SES Receipt Rule Set
@@ -162,10 +145,10 @@ export class EmailInfrastructureStack extends cdk.Stack {
       exportName: `SMTPUsername-${domainName.replace('.', '-')}`
     });
 
-    new cdk.CfnOutput(this, 'SMTPCredentialsSecret', {
-      value: smtpSecret.secretArn,
-      description: 'ARN of secret containing SMTP credentials',
-      exportName: `SMTPSecret-${domainName.replace('.', '-')}`
+    new cdk.CfnOutput(this, 'SMTPSetupInstructions', {
+      value: 'Get SMTP secret key via: aws iam list-access-keys --user-name ses-smtp-user-pfeiffer-rocks',
+      description: 'Command to retrieve SMTP credentials securely',
+      exportName: `SMTPInstructions-${domainName.replace('.', '-')}`
     });
 
     new cdk.CfnOutput(this, 'DomainIdentityArn', {

@@ -320,7 +320,8 @@ jobs:
         env:
           FORWARDING_RULES: ${{ secrets.FORWARDING_RULES }}
         run: |
-          cdk deploy EmailInfrastructureStack --require-approval never || {
+          echo "Deploying email infrastructure..."
+          cdk deploy EmailInfrastructureStack --require-approval never --quiet || {
               echo "Deployment failed. Checking CloudFormation events..."
               aws cloudformation describe-stack-events \
                 --stack-name EmailInfrastructureStack \
@@ -330,6 +331,7 @@ jobs:
                 --output table || echo "Could not retrieve stack events"
               exit 1
             }
+          echo "✅ Deployment completed successfully!"
 
       - name: Post-deployment validation
         working-directory: infrastructure
