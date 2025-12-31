@@ -10,15 +10,20 @@ describe('Email Storage Stack', () => {
   beforeEach(() => {
     app = new cdk.App();
 
+    // Set environment variable for test
+    process.env.DOMAIN_NAME = 'test-domain.com';
+
     storageStack = new EmailStorageStack(app, 'TestEmailStorageStack', {
       env: {
         account: '123456789012',
-        region: 'eu-west-1',
-        DOMAIN_NAME: 'test-domain.com'
+        region: 'eu-west-1'
       }
     });
 
     template = Template.fromStack(storageStack);
+    
+    // Clean up environment variable after test
+    delete process.env.DOMAIN_NAME;
   });
 
   test('S3 Bucket for email storage is created', () => {
