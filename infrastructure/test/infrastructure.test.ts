@@ -13,7 +13,8 @@ describe('Email Storage Stack', () => {
     storageStack = new EmailStorageStack(app, 'TestEmailStorageStack', {
       env: {
         account: '123456789012',
-        region: 'eu-west-1'
+        region: 'eu-west-1',
+        DOMAIN_NAME: 'test-domain.com'
       }
     });
 

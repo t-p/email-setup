@@ -8,7 +8,7 @@ export class EmailStorageStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
-        const domainName = 'pfeiffer.rocks';
+        const domainName = process.env.DOMAIN_NAME || 'pfeiffer.rocks';
 
         // S3 Bucket for email storage
         this.emailBucket = new s3.Bucket(this, 'EmailStorageBucket', {
