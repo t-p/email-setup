@@ -66,6 +66,19 @@ export class EmailInfrastructureStack extends cdk.Stack {
       user: smtpUser
     });
 
+    // IAM user for email sync services (for IMAP server sync jobs)
+    const syncUser = new iam.User(this, 'EmailSyncUser', {
+      userName: `email-sync-user-${domainName.replace('.', '-')}`
+    });
+
+    // Grant read access to email bucket for sync user
+    emailBucket.grantRead(syncUser);
+
+    // Create access key for email sync user
+    const syncAccessKey = new iam.AccessKey(this, 'EmailSyncAccessKey', {
+      user: syncUser
+    });
+
     // SES Receipt Rule Set
     const ruleSet = new ses.ReceiptRuleSet(this, 'EmailReceiptRuleSet', {
       receiptRuleSetName: `${domainName.replace('.', '-')}-rules`
@@ -84,18 +97,6 @@ export class EmailInfrastructureStack extends cdk.Stack {
       enabled: true,
       scanEnabled: true,
       tlsPolicy: ses.TlsPolicy.REQUIRE
-    });
-
-    // IAM user for email sync services (for IMAP server CronJob)
-    const syncUser = new iam.User(this, 'EmailSyncUser', {
-      userName: `email-sync-user-${domainName.replace('.', '-')}`
-    });
-
-    emailBucket.grantRead(syncUser);
-
-    // Create access key for email sync user
-    const syncAccessKey = new iam.AccessKey(this, 'EmailSyncAccessKey', {
-      user: syncUser
     });
 
     // SES Configuration Set for monitoring
@@ -126,18 +127,6 @@ export class EmailInfrastructureStack extends cdk.Stack {
       exportName: `EmailSyncAccessKey-${domainName.replace('.', '-')}`
     });
 
-    new cdk.CfnOutput(this, 'SESReceiptRuleSetName', {
-      value: ruleSet.receiptRuleSetName,
-      description: 'SES receipt rule set name',
-      exportName: `SESRuleSet-${domainName.replace('.', '-')}`
-    });
-
-    new cdk.CfnOutput(this, 'SESConfigurationSetName', {
-      value: configurationSet.configurationSetName,
-      description: 'SES configuration set name for monitoring',
-      exportName: `SESConfigSet-${domainName.replace('.', '-')}`
-    });
-
     new cdk.CfnOutput(this, 'SESMXRecord', {
       value: `10 inbound-smtp.${this.region}.amazonaws.com`,
       description: 'MX record to configure for the domain',
@@ -156,34 +145,16 @@ export class EmailInfrastructureStack extends cdk.Stack {
       exportName: `SMTPUsername-${domainName.replace('.', '-')}`
     });
 
-    new cdk.CfnOutput(this, 'SMTPSetupInstructions', {
-      value: 'Get SMTP secret key via: aws iam list-access-keys --user-name ses-smtp-user-pfeiffer-rocks',
-      description: 'Command to retrieve SMTP credentials securely',
-      exportName: `SMTPInstructions-${domainName.replace('.', '-')}`
-    });
-
     new cdk.CfnOutput(this, 'DomainIdentityArn', {
       value: domainIdentity.emailIdentityArn,
       description: 'SES Domain Identity ARN',
       exportName: `DomainIdentity-${domainName.replace('.', '-')}`
     });
 
-    new cdk.CfnOutput(this, 'DKIMTokensInfo', {
-      value: 'Check SES Console for DKIM tokens after deployment',
-      description: 'DKIM tokens available in SES console',
-      exportName: `DKIMInfo-${domainName.replace('.', '-')}`
-    });
-
     new cdk.CfnOutput(this, 'SPFRecord', {
       value: '"v=spf1 include:amazonses.com ~all"',
       description: 'SPF record to add to DNS',
       exportName: `SPFRecord-${domainName.replace('.', '-')}`
-    });
-
-    new cdk.CfnOutput(this, 'DNSConfigCommand', {
-      value: `Run: ./scripts/show-dns-config.sh ${domainName}`,
-      description: 'Command to show all DNS records',
-      exportName: `DNSCommand-${domainName.replace('.', '-')}`
     });
 
     new cdk.CfnOutput(this, 'ActivateRuleSetCommand', {

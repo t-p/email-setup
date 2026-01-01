@@ -194,9 +194,7 @@ echo ""
 
 echo "📁 Storage Configuration:"
 BUCKET_NAME=$(get_output "EmailBucketName")
-TABLE_NAME=$(get_output "EmailMetadataTableName")
 echo "   S3 Bucket: $BUCKET_NAME"
-echo "   DynamoDB Table: $TABLE_NAME"
 echo ""
 
 echo "=== NEXT STEPS ==="

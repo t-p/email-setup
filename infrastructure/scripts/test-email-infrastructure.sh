@@ -349,8 +349,7 @@ generate_report() {
     echo "Infrastructure Status:"
     echo "  ✓ CloudFormation Stack: Deployed"
     echo "  ✓ S3 Bucket: Accessible"
-    echo "  ✓ DynamoDB Table: Active"
-    echo "  ✓ Lambda Function: Working"
+    echo "  ✓ SES Receipt Rules: Configured"
     echo ""
 
     echo "SES Configuration:"
