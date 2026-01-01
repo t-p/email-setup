@@ -1,16 +1,6 @@
-# Email Infrastructure for example.com
+# Email Infrastructure
 
 A simplified, storage-only email infrastructure using AWS SES for receiving and sending emails, with direct S3 storage for raw email data.
-
-## Current Status: **FULLY OPERATIONAL**
-
-**Domain Verified**: example.com  
-**DKIM Configured**: AWS-managed keys with automatic rotation  
-**Email Receiving**: Active via SES → Direct S3 storage  
-**Email Sending**: SMTP available via SES  
-**Production Access**: Enabled (50,000 emails/day)  
-**DNS Records**: All properly configured  
-**Cost**: ~$3.50/month (storage-only approach)  
 
 ## Architecture Overview
 
