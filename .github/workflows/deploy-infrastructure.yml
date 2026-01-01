@@ -20,6 +20,7 @@ env:
   NODE_VERSION: "22"
   CDK_VERSION: "2.x"
   DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+  CDK_DISABLE_TELEMETRY: 1
 
 permissions:
   id-token: write # Required for OIDC
