@@ -8,7 +8,7 @@ set -e
 
 DOMAIN=${1:-pfeiffer.rocks}
 STACK_NAME="EmailInfrastructureStack"
-REGION=${AWS_REGION:-eu-central-1}
+REGION=${AWS_REGION:-eu-west-1}
 
 echo "🌐 DNS Configuration for SES Domain: $DOMAIN"
 echo "📍 Region: $REGION"
@@ -194,7 +194,8 @@ echo ""
 
 echo "📁 Storage Configuration:"
 BUCKET_NAME=$(get_output "EmailBucketName")
-echo "   S3 Bucket: $BUCKET_NAME"
+MASKED_BUCKET_NAME=$(echo "$BUCKET_NAME" | sed 's/[0-9]\{12\}/************/g')
+echo "   S3 Bucket: $MASKED_BUCKET_NAME"
 echo ""
 
 echo "=== NEXT STEPS ==="

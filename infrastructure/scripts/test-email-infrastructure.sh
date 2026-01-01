@@ -5,6 +5,14 @@
 
 set -e
 
+# Handle broken pipe errors gracefully and suppress Python stderr
+trap 'exit 0' PIPE
+export PYTHONIOENCODING=utf-8
+export PYTHONUNBUFFERED=1
+
+# Suppress Python broken pipe errors
+exec 2> >(grep -v "Broken pipe" >&2)
+
 DOMAIN=${1:-pfeiffer.rocks}
 STACK_NAME="EmailInfrastructureStack"
 REGION=${AWS_REGION:-eu-west-1}
@@ -83,7 +91,9 @@ test_s3_bucket() {
 
     # Check if bucket exists and is accessible
     if aws s3 ls "s3://$BUCKET_NAME" >/dev/null 2>&1; then
-        print_success "S3 bucket accessible: $BUCKET_NAME"
+        # Mask account ID in bucket name for display
+        MASKED_BUCKET_NAME=$(echo "$BUCKET_NAME" | sed 's/[0-9]\{12\}/************/g')
+        print_success "S3 bucket accessible: $MASKED_BUCKET_NAME"
 
         # Check bucket structure
         echo "   Checking bucket structure..."
@@ -123,28 +133,28 @@ test_ses_domain() {
         print_warning "Domain not verified - add DNS verification record"
     fi
 
-    # Check DKIM status
-    DKIM_ENABLED=$(aws ses get-identity-dkim-attributes \
-        --identities $DOMAIN \
+    # Check DKIM status using SES v2 API
+    DKIM_ENABLED=$(aws sesv2 get-email-identity \
+        --email-identity $DOMAIN \
         --region $REGION \
-        --query "DkimAttributes.\"$DOMAIN\".DkimEnabled" \
+        --query "DkimAttributes.SigningEnabled" \
         --output text 2>/dev/null || echo "false")
 
-    DKIM_STATUS=$(aws ses get-identity-dkim-attributes \
-        --identities $DOMAIN \
+    DKIM_STATUS=$(aws sesv2 get-email-identity \
+        --email-identity $DOMAIN \
         --region $REGION \
-        --query "DkimAttributes.\"$DOMAIN\".DkimVerificationStatus" \
+        --query "DkimAttributes.Status" \
         --output text 2>/dev/null || echo "Not found")
 
     echo "   DKIM enabled: $DKIM_ENABLED"
     echo "   DKIM verification: $DKIM_STATUS"
 
-    if [ "$DKIM_ENABLED" = "true" ] && [ "$DKIM_STATUS" = "Success" ]; then
-        print_success "DKIM is properly configured"
-    elif [ "$DKIM_ENABLED" = "true" ]; then
+    if [ "$DKIM_ENABLED" = "True" ] && [ "$DKIM_STATUS" = "SUCCESS" ]; then
+        print_success "DKIM is properly configured and verified"
+    elif [ "$DKIM_ENABLED" = "True" ]; then
         print_warning "DKIM enabled but not yet verified - check DNS records"
     else
-        print_warning "DKIM configuration incomplete - check DNS records"
+        print_warning "DKIM not enabled"
     fi
 }
 
@@ -198,25 +208,13 @@ test_smtp_configuration() {
         return 1
     fi
 
-    if [ "$SMTP_SECRET_ARN" != "Not found" ]; then
-        print_success "SMTP credentials stored in Secrets Manager"
-        echo "   Secret ARN: $SMTP_SECRET_ARN"
-
-        # Test if we can access the secret
-        SECRET_VALUE=$(aws secretsmanager get-secret-value \
-            --secret-id $SMTP_SECRET_ARN \
-            --region $REGION \
-            --query 'SecretString' \
-            --output text 2>/dev/null || echo "ACCESS_DENIED")
-
-        if [ "$SECRET_VALUE" != "ACCESS_DENIED" ]; then
-            print_success "SMTP credentials accessible"
-            echo "   SMTP server: email-smtp.$REGION.amazonaws.com:587"
-        else
-            print_warning "Cannot access SMTP credentials - check IAM permissions"
-        fi
+    if [ "$SMTP_USERNAME" != "Not found" ]; then
+        print_success "SMTP credentials available via IAM access keys"
+        echo "   SMTP server: email-smtp.$REGION.amazonaws.com:587"
+        echo "   SMTP username: $SMTP_USERNAME"
+        echo "   SMTP password: Available via IAM access key (use aws iam list-access-keys)"
     else
-        print_error "SMTP credentials secret not found"
+        print_error "SMTP username not found in stack outputs"
         return 1
     fi
 }
