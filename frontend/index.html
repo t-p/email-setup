@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webmail</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Login View -->
+    <section id="login-view" class="view active">
+        <div class="container">
+            <header>
+                <h1>Webmail</h1>
+                <p>Secure email access</p>
+            </header>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="token">Access Token</label>
+                    <input type="password" id="token" required>
+                </div>
+                <button type="submit">Access Email</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Email List View -->
+    <section id="list-view" class="view">
+        <div class="container">
+            <header class="app-header">
+                <h1>Inbox</h1>
+                <nav>
+                    <button id="compose-btn">Compose</button>
+                    <button id="logout-btn">Logout</button>
+                </nav>
+            </header>
+            
+            <div class="email-controls">
+                <input type="search" id="search" placeholder="Search emails...">
+                <button id="refresh-btn">Refresh</button>
+            </div>
+
+            <main class="email-list" id="email-list">
+                <!-- Email items will be populated by JavaScript -->
+            </main>
+        </div>
+    </section>
+
+    <!-- Email Read View -->
+    <section id="read-view" class="view">
+        <div class="container">
+            <header class="app-header">
+                <button id="back-btn">← Back</button>
+                <nav>
+                    <button id="reply-btn">Reply</button>
+                    <button id="forward-btn">Forward</button>
+                </nav>
+            </header>
+
+            <article class="email-content" id="email-content">
+                <header class="email-header">
+                    <h1 id="email-subject"></h1>
+                    <div class="email-meta">
+                        <div class="sender">
+                            <strong>From:</strong> <span id="email-from"></span>
+                        </div>
+                        <div class="recipient">
+                            <strong>To:</strong> <span id="email-to"></span>
+                        </div>
+                        <div class="date">
+                            <strong>Date:</strong> <time id="email-date"></time>
+                        </div>
+                    </div>
+                </header>
+                <div class="email-body" id="email-body">
+                    <!-- Email content will be populated by JavaScript -->
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <!-- Compose View -->
+    <section id="compose-view" class="view">
+        <div class="container">
+            <header class="app-header">
+                <button id="cancel-compose-btn">← Cancel</button>
+                <nav>
+                    <button id="send-btn" type="submit" form="compose-form">Send</button>
+                </nav>
+            </header>
+
+            <form id="compose-form" class="compose-form">
+                <div class="form-group">
+                    <label for="compose-to">To</label>
+                    <input type="email" id="compose-to" required>
+                </div>
+                <div class="form-group">
+                    <label for="compose-subject">Subject</label>
+                    <input type="text" id="compose-subject" required>
+                </div>
+                <div class="form-group">
+                    <label for="compose-body">Message</label>
+                    <textarea id="compose-body" rows="15" required></textarea>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Error Messages -->
+    <div id="error-message" class="error-message hidden">
+        <p id="error-text"></p>
+        <button id="error-close">×</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: #f5f5f5;
+}
+
+/* Layout Components */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.view {
+    display: none;
+    min-height: 100vh;
+}
+
+.view.active {
+    display: block;
+}
+
+/* Login View */
+#login-view {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+#login-view .container {
+    max-width: 400px;
+    text-align: center;
+}
+
+#login-view h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+#login-view p {
+    margin-bottom: 2rem;
+    opacity: 0.9;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 1rem;
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+input:focus, textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+button {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #5a6fd8;
+}
+
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+#login-form button {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+/* App Header */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 1rem;
+}
+
+.app-header h1 {
+    font-size: 1.5rem;
+}
+
+.app-header nav {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.app-header button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+/* Email Controls */
+.email-controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: center;
+}
+
+#search {
+    flex: 1;
+}
+
+/* Email List */
+.email-list {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.email-item {
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.email-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.email-item.unread {
+    border-left: 4px solid #667eea;
+    font-weight: 500;
+}
+
+.email-meta {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.email-subject {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.email-preview {
+    color: #888;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Email Read View */
+.email-content {
+    background: white;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.email-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.email-header h1 {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+}
+
+.email-header .email-meta {
+    display: grid;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.email-body {
+    padding: 1.5rem;
+    line-height: 1.7;
+}
+
+.email-body pre {
+    white-space: pre-wrap;
+    font-family: inherit;
+}
+
+/* Compose Form */
+.compose-form {
+    background: white;
+    border-radius: 4px;
+    padding: 1.5rem;
+}
+
+.compose-form textarea {
+    min-height: 300px;
+    resize: vertical;
+}
+
+/* Loading and Error States */
+.loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background: #dc3545;
+    color: white;
+    padding: 1rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 1001;
+    max-width: 400px;
+}
+
+.error-message button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    padding: 0;
+    cursor: pointer;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 0.5rem;
+    }
+    
+    .app-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .app-header nav {
+        justify-content: center;
+    }
+    
+    .email-controls {
+        flex-direction: column;
+    }
+    
+    .email-meta {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+    }
+    
+    .email-header .email-meta {
+        font-size: 0.8rem;
+    }
+    
+    .compose-form textarea {
+        min-height: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-header h1 {
+        font-size: 1.25rem;
+    }
+    
+    .app-header button {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .email-item {
+        padding: 0.75rem;
+    }
+    
+    .email-header, .email-body, .compose-form {
+        padding: 1rem;
+    }
+}

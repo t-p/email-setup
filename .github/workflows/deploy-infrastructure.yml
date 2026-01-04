@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "infrastructure/**"
-      - ".github/workflows/deploy-infrastructure.yml"
   workflow_dispatch:
     inputs:
       force_deploy:
@@ -45,6 +42,11 @@ jobs:
           filters: |
             infrastructure:
               - 'infrastructure/**'
+              - 'backend/**'
+              - 'frontend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
               - '.github/workflows/deploy-infrastructure.yml'
 
       - name: Setup Node.js
@@ -53,21 +55,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: infrastructure/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
         run: npm ci
 
       - name: Run security audit
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
         run: npm audit --audit-level=high
 
       - name: Run Snyk security scan
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
         run: |
           npm install -g snyk
           snyk auth ${{ secrets.SNYK_TOKEN }}
@@ -78,7 +77,6 @@ jobs:
 
       - name: CDK Security Analysis
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
         run: |
           # Run basic security checks
           echo "Running basic security analysis..."
@@ -109,6 +107,11 @@ jobs:
           filters: |
             infrastructure:
               - 'infrastructure/**'
+              - 'backend/**'
+              - 'frontend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
               - '.github/workflows/deploy-infrastructure.yml'
 
       - name: Setup Node.js
@@ -117,18 +120,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: infrastructure/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
         run: npm ci
 
       - name: Lint TypeScript
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
-        run: |
-          npx eslint . --ext .ts || echo "ESLint not configured, skipping..."
+        run: npm run lint
 
       - name: Verify AWS Region Configuration
         if: steps.changes.outputs.infrastructure == 'true'
@@ -142,12 +142,10 @@ jobs:
 
       - name: Build TypeScript
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
         run: npm run build
 
       - name: Run tests
         if: steps.changes.outputs.infrastructure == 'true'
-        working-directory: infrastructure
         run: npm test
 
       - name: Cache build artifacts
@@ -157,7 +155,8 @@ jobs:
           path: |
             infrastructure/lib/**/*.js
             infrastructure/bin/**/*.js
-            infrastructure/node_modules
+            backend/**/*.js
+            node_modules
           key: build-${{ github.sha }}
 
   # CDK diff job for pull requests
@@ -182,7 +181,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: infrastructure/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Restore build cache
         uses: actions/cache@v3
@@ -190,15 +189,14 @@ jobs:
           path: |
             infrastructure/lib/**/*.js
             infrastructure/bin/**/*.js
-            infrastructure/node_modules
+            backend/**/*.js
+            node_modules
           key: build-${{ github.sha }}
 
       - name: Install dependencies (if cache miss)
-        working-directory: infrastructure
         run: npm ci
 
       - name: Build (if cache miss)
-        working-directory: infrastructure
         run: npm run build
 
       - name: Install AWS CDK
@@ -206,12 +204,11 @@ jobs:
 
       - name: CDK Diff
         id: diff
-        working-directory: infrastructure
         run: |
           echo "# CDK Diff Results" > diff-output.md
           echo "" >> diff-output.md
           echo "\`\`\`diff" >> diff-output.md
-          cdk diff EmailInfrastructureStack 2>&1 | tee -a diff-output.md || true
+          cdk diff StorageStack EmailStack WebmailStack 2>&1 | tee -a diff-output.md || true
           echo "\`\`\`" >> diff-output.md
 
       - name: Comment PR with diff
@@ -219,7 +216,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const diffOutput = fs.readFileSync('infrastructure/diff-output.md', 'utf8');
+            const diffOutput = fs.readFileSync('diff-output.md', 'utf8');
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -260,11 +257,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: validate
     if: |
-      (github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.validate.outputs.changes-detected == 'true') ||
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
       github.event_name == 'workflow_dispatch'
     environment:
       name: production
-      url: https://console.aws.amazon.com/ses/home?region=eu-central-1
+      url: https://console.aws.amazon.com/ses/home?region=eu-west-1
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -281,7 +278,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-          cache-dependency-path: infrastructure/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Restore build cache
         uses: actions/cache@v3
@@ -289,15 +286,14 @@ jobs:
           path: |
             infrastructure/lib/**/*.js
             infrastructure/bin/**/*.js
-            infrastructure/node_modules
+            backend/**/*.js
+            node_modules
           key: build-${{ github.sha }}
 
       - name: Install dependencies (if cache miss)
-        working-directory: infrastructure
         run: npm ci
 
       - name: Build (if cache miss)
-        working-directory: infrastructure
         run: npm run build
 
       - name: Install AWS CDK
@@ -305,55 +301,65 @@ jobs:
 
       - name: CDK Diff (Safety Check)
         if: github.event.inputs.force_deploy != 'true'
-        working-directory: infrastructure
         run: |
           echo "Running safety diff..."
-          cdk diff EmailInfrastructureStack || true
+          cdk diff StorageStack EmailStack WebmailStack || true
 
       - name: CDK Bootstrap (if needed)
-        working-directory: infrastructure
         run: |
           echo "Bootstrapping CDK in ${{ env.AWS_REGION }}..."
           cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}
 
       - name: CDK Deploy
-        working-directory: infrastructure
         env:
           FORWARDING_RULES: ${{ secrets.FORWARDING_RULES }}
         run: |
           echo "Deploying email infrastructure..."
-          cdk deploy EmailInfrastructureStack --require-approval never --quiet || {
+          cdk deploy StorageStack EmailStack WebmailStack --require-approval never --quiet || {
               echo "Deployment failed. Checking CloudFormation events..."
               aws cloudformation describe-stack-events \
-                --stack-name EmailInfrastructureStack \
+                --stack-name StorageStack \
                 --region ${{ env.AWS_REGION }} \
                 --max-items 20 \
                 --query 'StackEvents[?ResourceStatus==`CREATE_FAILED` || ResourceStatus==`UPDATE_FAILED`].[LogicalResourceId,ResourceType,ResourceStatusReason]' \
-                --output table || echo "Could not retrieve stack events"
+                --output table || echo "Could not retrieve StorageStack events"
+              aws cloudformation describe-stack-events \
+                --stack-name EmailStack \
+                --region ${{ env.AWS_REGION }} \
+                --max-items 20 \
+                --query 'StackEvents[?ResourceStatus==`CREATE_FAILED` || ResourceStatus==`UPDATE_FAILED`].[LogicalResourceId,ResourceType,ResourceStatusReason]' \
+                --output table || echo "Could not retrieve EmailStack events"
+              aws cloudformation describe-stack-events \
+                --stack-name WebmailStack \
+                --region ${{ env.AWS_REGION }} \
+                --max-items 20 \
+                --query 'StackEvents[?ResourceStatus==`CREATE_FAILED` || ResourceStatus==`UPDATE_FAILED`].[LogicalResourceId,ResourceType,ResourceStatusReason]' \
+                --output table || echo "Could not retrieve WebmailStack events"
               exit 1
             }
 
       - name: Post-deployment validation
-        working-directory: infrastructure
         run: |
           echo "Validating deployment..."
 
-          # Check if stack exists and is in good state
-          STACK_STATUS=$(aws cloudformation describe-stacks \
-            --stack-name EmailInfrastructureStack \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Stacks[0].StackStatus' \
-            --output text)
+          # Check if stacks exist and are in good state
+          for STACK_NAME in StorageStack EmailStack WebmailStack; do
+            STACK_STATUS=$(aws cloudformation describe-stacks \
+              --stack-name $STACK_NAME \
+              --region ${{ env.AWS_REGION }} \
+              --query 'Stacks[0].StackStatus' \
+              --output text 2>/dev/null || echo "STACK_NOT_FOUND")
 
-          if [[ "$STACK_STATUS" != "CREATE_COMPLETE" && "$STACK_STATUS" != "UPDATE_COMPLETE" ]]; then
-            echo "ERROR: Stack is in unexpected state: $STACK_STATUS"
-            exit 1
-          fi
+            if [[ "$STACK_STATUS" != "CREATE_COMPLETE" && "$STACK_STATUS" != "UPDATE_COMPLETE" ]]; then
+              echo "ERROR: Stack $STACK_NAME is in unexpected state: $STACK_STATUS"
+              exit 1
+            fi
+            echo "$STACK_NAME: $STACK_STATUS"
+          done
 
-          echo "Deployment validated successfully"
+          echo "All deployments validated successfully"
 
       - name: Run Infrastructure Tests
-        working-directory: infrastructure
         run: |
           echo "Running infrastructure tests..."
           if [ -f "./scripts/test-email-infrastructure.sh" ]; then
@@ -381,20 +387,21 @@ jobs:
 
       - name: Check and report deployment status
         run: |
-          echo " Checking deployment status..."
+          echo "Checking deployment status..."
 
-          # Get stack status
-          STACK_STATUS=$(aws cloudformation describe-stacks \
-            --stack-name EmailInfrastructureStack \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Stacks[0].StackStatus' \
-            --output text 2>/dev/null || echo "STACK_NOT_FOUND")
+          # Check all stack statuses
+          for STACK_NAME in StorageStack EmailStack WebmailStack; do
+            STACK_STATUS=$(aws cloudformation describe-stacks \
+              --stack-name $STACK_NAME \
+              --region ${{ env.AWS_REGION }} \
+              --query 'Stacks[0].StackStatus' \
+              --output text 2>/dev/null || echo "STACK_NOT_FOUND")
 
-          echo " Current stack status: $STACK_STATUS"
+            echo "$STACK_NAME status: $STACK_STATUS"
 
-          if [[ "$STACK_STATUS" == *"FAILED"* ]] || [[ "$STACK_STATUS" == *"ROLLBACK"* ]]; then
-            echo "WARNING: Stack is in a failed state. Manual intervention may be required."
-            echo " CloudFormation Console: https://console.aws.amazon.com/cloudformation/home?region=${{ env.AWS_REGION }}"
-          fi
+            if [[ "$STACK_STATUS" == *"FAILED"* ]] || [[ "$STACK_STATUS" == *"ROLLBACK"* ]]; then
+              echo "WARNING: $STACK_NAME is in a failed state. Manual intervention may be required."
+            fi
+          done
 
-
+          echo "CloudFormation Console: https://console.aws.amazon.com/cloudformation/home?region=${{ env.AWS_REGION }}"

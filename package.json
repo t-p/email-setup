@@ -1,0 +1,30 @@
+{
+  "name": "email-setup",
+  "version": "0.1.0",
+  "description": "Email infrastructure and webmail for pfeiffer.rocks",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "cdk": "cdk --app 'npx ts-node --prefer-ts-exts infrastructure/bin/infrastructure.ts'"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "22.7.9",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "aws-cdk": "2.1029.1",
+    "eslint": "^9.39.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.51.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.214.0",
+    "constructs": "^10.4.2"
+  }
+}

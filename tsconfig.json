@@ -6,6 +6,7 @@
     "lib": [
       "es2022"
     ],
+    "types": ["node", "jest"],
     "declaration": true,
     "strict": true,
     "isolatedModules": true,
@@ -26,8 +27,13 @@
       "./node_modules/@types"
     ]
   },
+  "include": [
+    "infrastructure/**/*",
+    "backend/**/*"
+  ],
   "exclude": [
     "node_modules",
-    "cdk.out"
+    "cdk.out",
+    "frontend"
   ]
 }

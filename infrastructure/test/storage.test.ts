@@ -1,10 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
-import { EmailStorageStack } from '../lib/email-storage-stack';
+import { StorageStack } from '../lib/storage-stack';
 
-describe('Email Storage Stack', () => {
+describe('Storage Stack', () => {
   let app: cdk.App;
-  let storageStack: EmailStorageStack;
+  let storageStack: StorageStack;
   let template: Template;
 
   beforeEach(() => {
@@ -13,11 +13,12 @@ describe('Email Storage Stack', () => {
     // Set environment variable for test
     process.env.DOMAIN_NAME = 'test-domain.com';
 
-    storageStack = new EmailStorageStack(app, 'TestEmailStorageStack', {
+    storageStack = new StorageStack(app, 'TestStorageStack', {
       env: {
         account: '123456789012',
         region: 'eu-west-1'
-      }
+      },
+      domain: 'test-domain.com'
     });
 
     template = Template.fromStack(storageStack);
@@ -55,8 +56,9 @@ describe('Email Storage Stack', () => {
     });
   });
 
-  test('Storage stack outputs are defined', () => {
+  test('Storage stack has no sensitive outputs', () => {
     const outputs = template.findOutputs('*');
-    expect(Object.keys(outputs)).toContain('EmailBucketName');
+    // Verify no outputs contain sensitive data (bucket names with account IDs)
+    expect(Object.keys(outputs)).toEqual([]);
   });
 });
