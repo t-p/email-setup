@@ -1,30 +1,14 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
-import * as s3 from 'aws-cdk-lib/aws-s3';
 import { WebmailStack } from '../lib/webmail-stack';
 
 describe('Webmail Stack', () => {
   let app: cdk.App;
-  let mockBucket: s3.Bucket;
   let stack: WebmailStack;
   let template: Template;
 
   beforeEach(() => {
     app = new cdk.App();
-    
-    // Create a mock bucket for testing in the same environment
-    const mockStack = new cdk.Stack(app, 'MockStack', {
-      env: {
-        account: '123456789012',
-        region: 'eu-west-1',
-      },
-    });
-    mockBucket = new s3.Bucket(mockStack, 'MockWebmailBucket', {
-      websiteIndexDocument: 'index.html',
-      websiteErrorDocument: 'index.html',
-      publicReadAccess: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
-    });
 
     stack = new WebmailStack(app, 'TestWebmailStack', {
       env: {
